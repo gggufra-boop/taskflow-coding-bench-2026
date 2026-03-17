@@ -1,5 +1,6 @@
 """Business logic for task operations."""
 
+import json
 from datetime import datetime
 
 from sqlalchemy import func
@@ -28,6 +29,10 @@ class InvalidTransitionError(Exception):
     pass
 
 
+class WorkflowNotFoundError(Exception):
+    pass
+
+
 # Valid status transitions
 VALID_TRANSITIONS: dict[TaskStatus, list[TaskStatus]] = {
     TaskStatus.TODO: [TaskStatus.IN_PROGRESS],
@@ -37,12 +42,55 @@ VALID_TRANSITIONS: dict[TaskStatus, list[TaskStatus]] = {
 }
 
 
-def _validate_status_transition(current: TaskStatus, new: TaskStatus) -> None:
-    """Ensure the status transition is allowed."""
-    allowed = VALID_TRANSITIONS.get(current, [])
-    if new not in allowed:
+def _get_project_workflow_transitions(db: Session, project_id: int) -> dict[TaskStatus, list[TaskStatus]] | None:
+    """Get the workflow transitions for a project.
+    
+    Returns None if the project has no workflow assigned.
+    Returns a dict mapping TaskStatus to list of allowed TaskStatus transitions.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise ProjectNotFoundError(f"Project with id {project_id} not found")
+    
+    if project.workflow_id is None:
+        return None
+    
+    # Load the workflow
+    from app.models.workflow import Workflow
+    workflow = db.query(Workflow).filter(Workflow.id == project.workflow_id).first()
+    if not workflow:
+        raise WorkflowNotFoundError(f"Workflow with id {project.workflow_id} not found")
+    
+    # Parse the definition and convert to TaskStatus enum
+    definition = workflow.get_definition_dict()
+    transitions = {}
+    
+    for status_str, targets_list in definition.items():
+        status = TaskStatus(status_str)
+        allowed = [TaskStatus(target) for target in targets_list]
+        transitions[status] = allowed
+    
+    return transitions
+
+
+def _validate_status_transition(db: Session, task: Task, new_status: TaskStatus) -> None:
+    """Ensure the status transition is allowed.
+    
+    Uses the project's workflow if assigned, otherwise falls back to VALID_TRANSITIONS.
+    """
+    # Get transitions for the project's workflow, or fallback to defaults
+    project_transitions = _get_project_workflow_transitions(db, task.project_id)
+    
+    if project_transitions is not None:
+        # Use project-specific workflow
+        allowed = project_transitions.get(task.status, [])
+    else:
+        # Fall back to default transitions
+        allowed = VALID_TRANSITIONS.get(task.status, [])
+    
+    if new_status not in allowed:
         raise InvalidTransitionError(
-            f"Cannot transition from '{current.value}' to '{new.value}'. "
+            f"Cannot transition from '{task.status.value}' to '{new_status.value}'. "
             f"Allowed transitions: {[s.value for s in allowed]}"
         )
 
@@ -114,7 +162,7 @@ def update_task(db: Session, task_id: int, task_data: TaskUpdate) -> Task:
 
     # Validate status transition if status is being changed
     if "status" in update_dict and update_dict["status"] is not None:
-        _validate_status_transition(task.status, update_dict["status"])
+        _validate_status_transition(db, task, update_dict["status"])
 
     for key, value in update_dict.items():
         setattr(task, key, value)

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.database import init_db
 from app.middleware.request_logger import RequestLoggerMiddleware
-from app.routes import projects, tasks, users
+from app.routes import projects, tasks, users, workflows
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,6 +23,7 @@ app.add_middleware(RequestLoggerMiddleware)
 app.include_router(tasks.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(workflows.router, prefix="/api/v1")
 
 
 @app.on_event("startup")
