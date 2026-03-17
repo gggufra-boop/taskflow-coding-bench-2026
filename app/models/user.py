@@ -27,6 +27,7 @@ class User(Base):
     # Relationships
     assigned_tasks = relationship("Task", back_populates="assignee", foreign_keys="Task.assignee_id")
     created_tasks = relationship("Task", back_populates="creator", foreign_keys="Task.creator_id")
+    comments = relationship("Comment", back_populates="author")
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"

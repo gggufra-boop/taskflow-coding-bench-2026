@@ -44,6 +44,7 @@ class Task(Base):
     project = relationship("Project", back_populates="tasks")
     assignee = relationship("User", back_populates="assigned_tasks", foreign_keys=[assignee_id])
     creator = relationship("User", back_populates="created_tasks", foreign_keys=[creator_id])
+    comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Task(id={self.id}, title='{self.title}', status='{self.status}')>"

@@ -84,3 +84,31 @@ class TaskResponse(BaseModel):
 class TaskListResponse(BaseModel):
     tasks: list[TaskResponse]
     total: int
+
+
+# ── Comment schemas ───────────────────────────────────────────
+
+class CommentCreate(BaseModel):
+    body: str
+    task_id: int
+    author_id: int
+
+
+class CommentUpdate(BaseModel):
+    body: str
+
+
+class CommentResponse(BaseModel):
+    id: int
+    body: str
+    task_id: int
+    author_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CommentListResponse(BaseModel):
+    comments: list[CommentResponse]
+    total: int
