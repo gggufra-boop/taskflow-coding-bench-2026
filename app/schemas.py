@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.task import TaskPriority, TaskStatus
 from app.models.user import UserRole
@@ -32,6 +32,7 @@ class ProjectCreate(BaseModel):
     name: str
     description: str | None = None
     slug: str
+    workflow_id: int | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -39,9 +40,35 @@ class ProjectResponse(BaseModel):
     name: str
     description: str | None
     slug: str
+    workflow_id: int | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Workflow schemas ────────────────────────────────────────
+
+class WorkflowCreate(BaseModel):
+    name: str
+    definition: dict
+
+
+class WorkflowResponse(BaseModel):
+    id: int
+    name: str
+    definition: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("definition", mode="before")
+    @classmethod
+    def parse_definition(cls, v):
+        """Parse JSON string to dict if needed."""
+        import json
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
 
 # ── Task schemas ──────────────────────────────────────────────
